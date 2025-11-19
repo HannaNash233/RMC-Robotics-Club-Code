@@ -1,4 +1,4 @@
-{"mode":"Text","hardwareTarget":"brain","textContent":"#pragma region VEXcode Generated Robot Configuration\n
+#pragma region VEXcode Generated Robot Configuration
 // Make sure all required headers are included.
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,111 +7,198 @@
 #include <string.h>
 
 
+#include "vex.h"
 
-#include \"vex.h\"\n\nusing namespace vex;
+using namespace vex;
 
-// Brain should be defined by default\nbrain Brain;
+// Brain should be defined by default
+brain Brain;
 
 
+// START V5 MACROS
+#define waitUntil(condition)                                                   \
+  do {                                                                         \
+    wait(5, msec);                                                             \
+  } while (!(condition))
 
-// START V5 MACROS\n#define waitUntil(condition)                                                
-do {                                                                          
-    wait(5, msec);                                                           
-} 
-while (!(condition))
-#define repeat(iterations)                                                     
-for (int iterator = 0; iterator < iterations; iterator++)
+#define repeat(iterations)                                                     \
+  for (int iterator = 0; iterator < iterations; iterator++)
 // END V5 MACROS
 
-// Robot configuration code.\ncontroller Controller1 = controller(primary);
-motor DriveLHD = motor(PORT8, ratio18_1, true);
-motor DriveLT = motor(PORT9, ratio18_1, false);
-motor DriveLB = motor(PORT10, ratio18_1, false);
-motor DriveRHD = motor(PORT3, ratio18_1, false);
-motor DriveRT = motor(PORT2, ratio18_1, true);
-motor DriveRB = motor(PORT1, ratio18_1, true);
-motor intakeMotor = motor(PORT16, ratio18_1, false);
-// generating and setting random seed
-void initializeRandomSeed(){  
-    int systemTime = Brain.Timer.systemHighResolution();\n  
-    double batteryCurrent = Brain.Battery.current();  
-    double batteryVoltage = Brain.Battery.voltage(voltageUnits::mV);
-    // Combine these values into a single integer
-    int seed = int(batteryVoltage + batteryCurrent * 100) + systemTime;
 
-    // Set the seed\n  srand(seed);
+// Robot configuration code.
+controller Controller1 = controller(primary);
+motor DriveLHD = motor(PORT8, ratio18_1, true);
+
+motor DriveLT = motor(PORT9, ratio18_1, false);
+
+motor DriveLB = motor(PORT10, ratio18_1, false);
+
+motor DriveRHD = motor(PORT3, ratio18_1, false);
+
+motor DriveRT = motor(PORT2, ratio18_1, true);
+
+motor DriveRB = motor(PORT1, ratio18_1, true);
+
+motor intakeLeft = motor(PORT16, ratio36_1, false);
+
+motor armMotor = motor(PORT4, ratio18_1, false);
+
+motor shotLeft = motor(PORT11, ratio18_1, false);
+
+motor shotRight = motor(PORT12, ratio18_1, false);
+
+motor intakeRight = motor(PORT13, ratio18_1, false);
+
+
+
+// generating and setting random seed
+void initializeRandomSeed(){
+  int systemTime = Brain.Timer.systemHighResolution();
+  double batteryCurrent = Brain.Battery.current();
+  double batteryVoltage = Brain.Battery.voltage(voltageUnits::mV);
+
+  // Combine these values into a single integer
+  int seed = int(batteryVoltage + batteryCurrent * 100) + systemTime;
+
+  // Set the seed
+  srand(seed);
 }
 
 
 
-void vexcodeInit() {  //Initializing random seed.\n  
+void vexcodeInit() {
+
+  //Initializing random seed.
   initializeRandomSeed(); 
 }
-
 
 
 // Helper to make playing sounds from the V5 in VEXcode easier and
 // keeps the code cleaner by making it clear what is happening.
 void playVexcodeSound(const char *soundName) {
-  printf(\"VEXPlaySound:%s\\n\", soundName);\n  wait(5, msec);
+  printf("VEXPlaySound:%s\n", soundName);
+  wait(5, msec);
 }
 
 
 
+// define variable for remote controller enable/disable
+bool RemoteControlCodeEnabled = true;
+// define variables used for controlling motors based on controller inputs
+bool Controller1XBButtonsControlMotorsStopped = true;
 
-// define variable for remote controller enable/disable\nbool RemoteControlCodeEnabled = true;
+// define a task that will handle monitoring inputs from Controller1
+int rc_auto_loop_function_Controller1() {
+  // process the controller input every 20 milliseconds
+  // update the motors based on the input values
+  while(true) {
+    if(RemoteControlCodeEnabled) {
+      // check the ButtonX/ButtonB status to control intakeLeft
+      if (Controller1.ButtonX.pressing()) {
+        intakeLeft.spin(forward);
+        Controller1XBButtonsControlMotorsStopped = false;
+      } else if (Controller1.ButtonB.pressing()) {
+        intakeLeft.spin(reverse);
+        Controller1XBButtonsControlMotorsStopped = false;
+      } else if (!Controller1XBButtonsControlMotorsStopped) {
+        intakeLeft.stop();
+        // set the toggle so that we don't constantly tell the motor to stop when the buttons are released
+        Controller1XBButtonsControlMotorsStopped = true;
+      }
+    }
+    // wait before repeating the process
+    wait(20, msec);
+  }
+  return 0;
+}
 
+task rc_auto_loop_task_Controller1(rc_auto_loop_function_Controller1);
 
 #pragma endregion VEXcode Generated Robot Configuration
 
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*    Module:       main.cpp                                                  */
+/*    Author:       {author}                                                  */
+/*    Created:      {date}                                                    */
+/*    Description:  V5 project                                                */
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
 
-/*----------------------------------------------------------------------------*/\n/*                
-*/\n/*    Module:       main.cpp                                                  */\n/*    
-Author:       {author}                                                  */\n/*    
-Created:      {date}                                                    */\n/*    
-Description:  V5 project                                                */\n/*         
-*/\n/*----------------------------------------------------------------------------*/\n\n// Include the V5 Library
-#include \"vex.h\"\n  
-// Allows for easier use of the VEX Library\nusing namespace vex;
+// Include the V5 Library
+#include "vex.h"
+  
+// Allows for easier use of the VEX Library
+using namespace vex;
 
-void buttonPressed(){
-    intakeMotor.setVelocity(100, percent);
-    intakeMotor.setMaxTorque(100, percent);
-    Controller1.Screen.print(intakeMotor.velocity(percent));
-    intakeMotor.spin(forward);
+motor_group intakeMotors = motor_group(intakeLeft, intakeRight);
+
+void intakePressed(){
+  intakeMotors.setVelocity(100, percent);
+  intakeMotors.setMaxTorque(100, percent);
+  intakeMotors.spin(forward);
 }
 
-void buttonReleased(){  
-    intakeMotor.stop();
+void intakeStop(){
+  intakeMotors.stop();
 }
+// may need to nerf the speed if it flings up immediately
+void armPressed(){
+  armMotor.setVelocity(100, percent);
+  //armMotor.setVelocity(100, percent);
+  armMotor.spin(forward);
+}
+
+void armStop() {
+  armMotor.stop();
+}
+
+
 
 int main() {
-    // Initializing Robot Configuration. DO NOT REMOVE! 
-    vexcodeInit(); 
-    // Begin project code 
-    while (true){
-        //leftDrive.setVelocity(Controller1.Axis3.position());
-        //DriveLHD.setVelocity(50, percent);
-        int RightPercent = Controller1.Axis2.position();
-        
-        Controller1.ButtonB.pressed(buttonPressed);
-        Controller1.ButtonB.released(buttonReleased);
-        DriveRHD.setVelocity(RightPercent, percent);
-        DriveRT.setVelocity(RightPercent, percent);
-        DriveRB.setVelocity(RightPercent, percent);
+  // Initializing Robot Configuration. DO NOT REMOVE!
+  vexcodeInit();
+  // Begin project code
+ 
+  while (true){
+    //leftDrive.setVelocity(Controller1.Axis3.position());
+    //DriveLHD.setVelocity(50, percent);
+    int RightPercent = Controller1.Axis2.position();
+    
+    //Controller1.ButtonB.pressed(buttonPressed);
+    //Controller1.ButtonB.released(buttonReleased);
+    DriveRHD.setVelocity(RightPercent, percent);
+    DriveRT.setVelocity(RightPercent, percent);
+    DriveRB.setVelocity(RightPercent, percent);
 
-        int LeftPercent = Controller1.Axis3.position();
+    int LeftPercent = Controller1.Axis3.position();
 
-        DriveLHD.setVelocity(LeftPercent, percent);
-        DriveLT.setVelocity(LeftPercent, percent);
-        DriveLB.setVelocity(LeftPercent, percent);
-        DriveRHD.spin(forward);
-        DriveRT.spin(forward);
-        DriveRB.spin(forward);
+    DriveLHD.setVelocity(LeftPercent, percent);
+    DriveLT.setVelocity(LeftPercent, percent);
+    DriveLB.setVelocity(LeftPercent, percent);
 
-        DriveLHD.spin(forward);
-        DriveLT.spin(forward);
-        DriveLB.spin(forward);
+    DriveRHD.spin(forward);
+    DriveRT.spin(forward);
+    DriveRB.spin(forward);
+
+    DriveLHD.spin(forward);
+    DriveLT.spin(forward);
+    DriveLB.spin(forward);
+
+    Controller1.ButtonA.pressed(intakePressed);
+    Controller1.ButtonB.pressed(intakeStop);
+    
+    Controller1.ButtonUp.pressed(armPressed);
+    Controller1.ButtonDown.pressed(armStop);
+
+    
+
+
+
+
   }
+
+
+  
 }
-","textLanguage":"cpp","robotConfig":[{"port":[],"name":"Controller1","customName":false,"deviceType":"Controller","deviceClass":"controller","setting":{"left":"","leftDir":"false","right":"","rightDir":"false","upDown":"","upDownDir":"false","xB":"","xBDir":"false","drive":"none","id":"primary"},"triportSourcePort":22},{"port":[8],"name":"DriveLHD","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse","gear":"ratio18_1"},"triportSourcePort":22},{"port":[9],"name":"DriveLT","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio18_1","id":"partner"},"triportSourcePort":22},{"port":[10],"name":"DriveLB","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio18_1","id":"partner"},"triportSourcePort":22},{"port":[3],"name":"DriveRHD","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio18_1"},"triportSourcePort":22},{"port":[2],"name":"DriveRT","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse","gear":"ratio18_1"},"triportSourcePort":22},{"port":[1],"name":"DriveRB","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse","gear":"ratio18_1"},"triportSourcePort":22},{"port":[16],"name":"intakeMotor","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio18_1","id":"partner"}}],"slot":0,"platform":"V5","sdkVersion":"20240802.15.00.00","appVersion":"4.0.7","fileFormat":"2.0.0","targetBrainGen":"First","v5Sounds":[{"name":"game over","url":"static/sounds/mixkit-arcade-retro-game-over-213.wav"}],"v5SoundsEnabled":false}
